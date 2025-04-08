@@ -8,6 +8,7 @@ Official JavaScript/TypeScript client for the [Solana Tracker Data API](https://
 
 - Full TypeScript support with detailed interfaces for all API responses
 - Comprehensive coverage of all Solana Tracker Data API endpoints
+- Real-time data streaming via WebSocket (Datastream)
 - Built-in error handling with specific error types
 - Compatible with both Node.js and browser environments
 
@@ -47,6 +48,71 @@ const fetchTokenInfo = async () => {
 
 fetchTokenInfo();
 ```
+
+## Real-Time Data Streaming (Premium plan or higher only)
+
+The library includes a `Datastream` class for real-time data updates:
+
+```typescript
+import { Datastream } from '@solanatracker/data-api';
+
+// Initialize the Datastream with your API key
+const dataStream = new Datastream({
+  wsUrl: 'YOUR_WS_URL'
+});
+
+// Example: Subscribe to latest tokens
+dataStream.subscribeToLatest();
+
+// Listen for new tokens
+dataStream.on('latest', (tokenData) => {
+  console.log('New token created:', tokenData.token.name);
+});
+
+// Example: Track a specific token's price
+const tokenAddress = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN'; // TRUMP token
+dataStream.subscribeToTokenPrice(tokenAddress);
+
+// Listen for price updates
+dataStream.on(`price-by-token:${tokenAddress}`, (priceData) => {
+  console.log(`New price: $${priceData.price}`);
+});
+
+// Connect to the WebSocket server
+dataStream.connect();
+
+// Handle connection events
+dataStream.on('connected', () => console.log('Connected to datastream'));
+dataStream.on('disconnected', () => console.log('Disconnected from datastream'));
+dataStream.on('error', (error) => console.error('Datastream error:', error));
+```
+
+Available subscription methods:
+
+```typescript
+// Token and pool updates
+dataStream.subscribeToLatest();
+dataStream.subscribeToTokenChanges(tokenAddress);
+dataStream.subscribeToPoolChanges(poolId);
+
+// Price updates
+dataStream.subscribeToTokenPrice(tokenAddress);
+dataStream.subscribeToPoolPrice(poolId);
+
+// Transactions
+dataStream.subscribeToTokenTransactions(tokenAddress);
+dataStream.subscribeToPoolTransactions(tokenAddress, poolId);
+dataStream.subscribeToWalletTransactions(walletAddress);
+
+// Pump.fun stages
+dataStream.subscribeToGraduatingTokens();
+dataStream.subscribeToGraduatedTokens();
+
+// Metadata and holders
+dataStream.subscribeToTokenMetadata(tokenAddress);
+dataStream.subscribeToHolderUpdates(tokenAddress);
+```
+
 
 ## API Documentation
 
@@ -234,6 +300,48 @@ try {
 }
 ```
 
+
+## WebSocket Data Stream
+
+The `Datastream` class provides real-time access to Solana Tracker data:
+
+### Events
+
+The Datastream extends the standard EventEmitter interface, allowing you to listen for various events:
+
+```typescript
+// Connection events
+dataStream.on('connected', () => console.log('Connected to WebSocket server'));
+dataStream.on('disconnected', (socketType) => console.log(`Disconnected: ${socketType}`));
+dataStream.on('reconnecting', (attempt) => console.log(`Reconnecting: attempt ${attempt}`));
+dataStream.on('error', (error) => console.error('Error:', error));
+
+// Data events
+dataStream.on('latest', (data) => console.log('New token:', data));
+dataStream.on(`price-by-token:${tokenAddress}`, (data) => console.log('Price update:', data));
+dataStream.on(`transaction:${tokenAddress}`, (data) => console.log('New transaction:', data));
+dataStream.on(`wallet:${walletAddress}`, (data) => console.log('Wallet transaction:', data));
+dataStream.on('graduating', (data) => console.log('Graduating token:', data));
+dataStream.on('graduated', (data) => console.log('Graduated token:', data));
+dataStream.on(`metadata:${tokenAddress}`, (data) => console.log('Metadata update:', data));
+dataStream.on(`holders:${tokenAddress}`, (data) => console.log('Holders update:', data));
+dataStream.on(`token:${tokenAddress}`, (data) => console.log('Token update:', data));
+dataStream.on(`pool:${poolId}`, (data) => console.log('Pool update:', data));
+```
+
+### Connection Management
+
+```typescript
+// Connect to the WebSocket server
+await dataStream.connect();
+
+// Check connection status
+const isConnected = dataStream.isConnected();
+
+// Disconnect
+dataStream.disconnect();
+```
+
 ## Subscription Plans
 
 Solana Tracker offers a range of subscription plans with varying rate limits:
@@ -250,6 +358,10 @@ Solana Tracker offers a range of subscription plans with varying rate limits:
 | Enterprise Plus | Custom        | Unlimited      | None       |
 
 Visit [Solana Tracker](https://www.solanatracker.io/account/data-api) to sign up and get your API key.
+
+## WebSocket Access
+
+WebSocket access (via the Datastream) is available for Premium, Business, and Enterprise plans.
 
 ## License
 

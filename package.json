@@ -1,6 +1,6 @@
 {
     "name": "@solana-tracker/data-api",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "Official Solana Tracker Data API client for accessing Solana Data",
     "main": "dist/index.js",
     "module": "dist/index.mjs",
@@ -39,6 +39,9 @@
     "homepage": "https://www.solanatracker.io/data-api",
     "dependencies": {
         "node-fetch": "^3.3.2"
+    },
+    "optionalDependencies": {
+        "ws": "^8.16.0"
     },
     "devDependencies": {
         "@types/jest": "^29.5.12",
