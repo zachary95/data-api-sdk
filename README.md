@@ -2,7 +2,7 @@
 
 Official JavaScript/TypeScript client for the [Solana Tracker Data API](https://www.solanatracker.io/data-api).
 
-[![npm version](https://badge.fury.io/js/@solana-tracker%2Fdata-api.svg)](https://www.npmjs.com/package/@solana-tracker/data-api)
+[![npm version](https://badge.fury.io/js/@solana-tracker%2Fdata-api.svg)](https://badge.fury.io/js/@solana-tracker%2Fdata-api)
 
 ## Features
 
