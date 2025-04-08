@@ -2,7 +2,7 @@
 
 Official JavaScript/TypeScript client for the [Solana Tracker Data API](https://www.solanatracker.io/data-api).
 
-[![npm version](https://badge.fury.io/js/@solanatracker%2Fdata-api.svg)](https://www.npmjs.com/package/@solanatracker/data-api)
+[![npm version](https://badge.fury.io/js/@solana-tracker%2Fdata-api.svg)](https://www.npmjs.com/package/@solana-tracker/data-api)
 
 ## Features
 
@@ -16,19 +16,19 @@ Official JavaScript/TypeScript client for the [Solana Tracker Data API](https://
 Install the package using npm:
 
 ```bash
-npm install @solanatracker/data-api
+npm install @solana-tracker/data-api
 ```
 
 Or with yarn:
 
 ```bash
-yarn add @solanatracker/data-api
+yarn add @solana-tracker/data-api
 ```
 
 ## Quick Start
 
 ```typescript
-import { Client } from '@solanatracker/data-api';
+import { Client } from '@solana-tracker/data-api';
 
 // Initialize the client with your API key
 const client = new Client({
@@ -217,7 +217,7 @@ const poolStats = await client.getPoolStats('tokenAddress', 'poolAddress');
 The library includes specific error types for robust error handling:
 
 ```typescript
-import { Client, DataApiError, RateLimitError, ValidationError } from '@solanatracker/data-api';
+import { Client, DataApiError, RateLimitError, ValidationError } from '@solana-tracker/data-api';
 
 try {
   const tokenInfo = await client.getTokenInfo('invalid-address');

@@ -1,5 +1,5 @@
 {
-    "name": "@solanatracker/data-api",
+    "name": "@solana-tracker/data-api",
     "version": "0.0.1",
     "description": "Official Solana Tracker Data API client for accessing Solana Data",
     "main": "dist/index.js",
@@ -27,7 +27,7 @@
         "pumpfun",
         "raydium"
     ],
-    "author": "Solana Tracker <contact@solanatracker.io>",
+    "author": "Solana Tracker <contact@solana-tracker.io>",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -36,7 +36,7 @@
     "bugs": {
         "url": "https://github.com/solanatracker/data-api-sdk/issues"
     },
-    "homepage": "https://github.com/data-api-sdk/data-api-sdk#readme",
+    "homepage": "https://www.solanatracker.io/data-api",
     "dependencies": {
         "node-fetch": "^3.3.2"
     },

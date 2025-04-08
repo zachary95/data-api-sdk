@@ -300,7 +300,7 @@ export class Client {
    */
   async getPrice(tokenAddress: string, priceChanges?: boolean): Promise<PriceData> {
     this.validatePublicKey(tokenAddress, 'tokenAddress');
-    const query = priceChanges ? '?priceChanges=true' : '';
+    const query = priceChanges ? '&priceChanges=true' : '';
     return this.request<PriceData>(`/price?token=${tokenAddress}${query}`);
   }
 
