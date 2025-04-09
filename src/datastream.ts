@@ -55,10 +55,167 @@ export interface DatastreamConfig {
     randomizationFactor?: number;
 }
 
+interface SubscribeResponse<T = any> {
+    room: string;
+    /**
+     * Register a listener for this subscription
+     * @param callback Function to handle incoming data
+     * @returns Object with unsubscribe method
+     */
+    on(callback: (data: T) => void): {
+        unsubscribe: () => void;
+    };
+}
+
+/**
+ * Subscription methods for the Datastream client
+ */
+class SubscriptionMethods {
+    private ds: Datastream;
+    public price: PriceSubscriptions;
+    public tx: TransactionSubscriptions;
+
+    constructor(datastream: Datastream) {
+        this.ds = datastream;
+        this.price = new PriceSubscriptions(datastream);
+        this.tx = new TransactionSubscriptions(datastream);
+    }
+
+    /**
+     * Subscribe to latest tokens and pools
+     */
+    latest(): SubscribeResponse<PoolUpdate> {
+        return this.ds._subscribe<PoolUpdate>('latest');
+    }
+
+    /**
+     * Subscribe to graduating tokens
+     * @param marketCapThresholdSOL Optional market cap threshold in SOL
+     */
+    graduating(marketCapThresholdSOL?: number): SubscribeResponse<PoolUpdate> {
+        const room = marketCapThresholdSOL
+            ? `graduating:sol:${marketCapThresholdSOL}`
+            : 'graduating';
+        return this.ds._subscribe<PoolUpdate>(room);
+    }
+
+    /**
+     * Subscribe to graduated tokens
+     */
+    graduated(): SubscribeResponse<PoolUpdate> {
+        return this.ds._subscribe<PoolUpdate>('graduated');
+    }
+
+    /**
+     * Subscribe to token metadata updates
+     * @param tokenAddress The token address
+     */
+    metadata(tokenAddress: string): SubscribeResponse<TokenMetadata> {
+        return this.ds._subscribe<TokenMetadata>(`metadata:${tokenAddress}`);
+    }
+
+    /**
+     * Subscribe to holder count updates for a token
+     * @param tokenAddress The token address
+     */
+    holders(tokenAddress: string): SubscribeResponse<HolderUpdate> {
+        return this.ds._subscribe<HolderUpdate>(`holders:${tokenAddress}`);
+    }
+
+    /**
+     * Subscribe to token changes (any pool)
+     * @param tokenAddress The token address
+     */
+    token(tokenAddress: string): SubscribeResponse<PoolUpdate> {
+        return this.ds._subscribe<PoolUpdate>(`token:${tokenAddress}`);
+    }
+
+    /**
+     * Subscribe to pool changes
+     * @param poolId The pool address
+     */
+    pool(poolId: string): SubscribeResponse<PoolUpdate> {
+        return this.ds._subscribe<PoolUpdate>(`pool:${poolId}`);
+    }
+}
+
+/**
+ * Price-related subscription methods
+ */
+class PriceSubscriptions {
+    private ds: Datastream;
+
+    constructor(datastream: Datastream) {
+        this.ds = datastream;
+    }
+
+    /**
+     * Subscribe to price updates for a token's primary/largest pool
+     * @param tokenAddress The token address
+     */
+    token(tokenAddress: string): SubscribeResponse<PriceUpdate> {
+        return this.ds._subscribe<PriceUpdate>(`price-by-token:${tokenAddress}`);
+    }
+
+    /**
+     * Subscribe to all price updates for a token across all pools
+     * @param tokenAddress The token address
+     */
+    allPoolsForToken(tokenAddress: string): SubscribeResponse<PriceUpdate> {
+        return this.ds._subscribe<PriceUpdate>(`price:${tokenAddress}`);
+    }
+
+    /**
+     * Subscribe to price updates for a specific pool
+     * @param poolId The pool address
+     */
+    pool(poolId: string): SubscribeResponse<PriceUpdate> {
+        return this.ds._subscribe<PriceUpdate>(`price:${poolId}`);
+    }
+}
+
+/**
+ * Transaction-related subscription methods
+ */
+class TransactionSubscriptions {
+    private ds: Datastream;
+
+    constructor(datastream: Datastream) {
+        this.ds = datastream;
+    }
+
+    /**
+     * Subscribe to transactions for a token across all pools
+     * @param tokenAddress The token address
+     */
+    token(tokenAddress: string): SubscribeResponse<TokenTransaction> {
+        return this.ds._subscribe<TokenTransaction>(`transaction:${tokenAddress}`);
+    }
+
+    /**
+     * Subscribe to transactions for a specific token and pool
+     * @param tokenAddress The token address
+     * @param poolId The pool address
+     */
+    pool(tokenAddress: string, poolId: string): SubscribeResponse<TokenTransaction> {
+        return this.ds._subscribe<TokenTransaction>(`transaction:${tokenAddress}:${poolId}`);
+    }
+
+    /**
+     * Subscribe to transactions for a specific wallet
+     * @param walletAddress The wallet address
+     */
+    wallet(walletAddress: string): SubscribeResponse<WalletTransaction> {
+        return this.ds._subscribe<WalletTransaction>(`wallet:${walletAddress}`);
+    }
+}
+
 /**
  * WebSocket service for real-time data streaming from Solana Tracker
  */
 export class Datastream extends EventEmitter {
+    public subscribe: SubscriptionMethods;
+
     private wsUrl: string;
     private socket: WebSocket | null = null;
     private transactionSocket: WebSocket | null = null;
@@ -82,6 +239,7 @@ export class Datastream extends EventEmitter {
         this.reconnectDelay = config.reconnectDelay || 2500;
         this.reconnectDelayMax = config.reconnectDelayMax || 4500;
         this.randomizationFactor = config.randomizationFactor || 0.5;
+        this.subscribe = new SubscriptionMethods(this);
         if (typeof window !== 'undefined') {
             window.addEventListener('beforeunload', this.disconnect.bind(this));
         }
@@ -241,9 +399,10 @@ export class Datastream extends EventEmitter {
     /**
      * Subscribes to a data room
      * @param room The room name to join
-     * @returns Reference to this instance for chaining
+     * @returns Response with room name and on() method for listening
+     * @internal Used by SubscriptionMethods
      */
-    subscribe(room: string): Datastream {
+    _subscribe<T = any>(room: string): SubscribeResponse<T> {
         this.subscribedRooms.add(room);
 
         const socket = room.includes('transaction')
@@ -257,7 +416,29 @@ export class Datastream extends EventEmitter {
             this.connect();
         }
 
-        return this;
+        return {
+            room,
+            on: (callback: (data: T) => void) => {
+                // Create a wrapper that handles arrays automatically
+                const wrappedCallback = (data: T | T[]) => {
+                    if (Array.isArray(data)) {
+                        // If data is an array, call the callback for each item
+                        data.forEach(item => callback(item));
+                    } else {
+                        // If data is a single item, call the callback directly
+                        callback(data);
+                    }
+                };
+
+                this.on(room, wrappedCallback as any);
+
+                return {
+                    unsubscribe: () => {
+                        this.removeListener(room, wrappedCallback as any);
+                    }
+                };
+            }
+        };
     }
 
 
@@ -322,118 +503,6 @@ export class Datastream extends EventEmitter {
                 socket.send(JSON.stringify({ type: 'join', room }));
             }
         }
-    }
-
-    // Convenience methods for common subscription types
-
-    /**
-     * Subscribe to latest tokens and pools
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToLatest(): Datastream {
-        return this.subscribe('latest');
-    }
-
-    /**
-     * Subscribe to price updates for a token
-     * @param tokenAddress The token address
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToTokenPrice(tokenAddress: string): Datastream {
-        return this.subscribe(`price-by-token:${tokenAddress}`);
-    }
-
-    /**
-     * Subscribe to price updates for a pool
-     * @param poolId The pool address
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToPoolPrice(poolId: string): Datastream {
-        return this.subscribe(`price:${poolId}`);
-    }
-
-    /**
-     * Subscribe to transactions for a token
-     * @param tokenAddress The token address
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToTokenTransactions(tokenAddress: string): Datastream {
-        return this.subscribe(`transaction:${tokenAddress}`);
-    }
-
-    /**
-     * Subscribe to transactions for a specific token and pool
-     * @param tokenAddress The token address
-     * @param poolId The pool address
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToPoolTransactions(tokenAddress: string, poolId: string): Datastream {
-        return this.subscribe(`transaction:${tokenAddress}:${poolId}`);
-    }
-
-    /**
-     * Subscribe to transactions for a specific wallet
-     * @param walletAddress The wallet address
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToWalletTransactions(walletAddress: string): Datastream {
-        return this.subscribe(`wallet:${walletAddress}`);
-    }
-
-    /**
-     * Subscribe to graduating tokens
-     * @param marketCapThresholdSOL Optional market cap threshold in SOL
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToGraduatingTokens(marketCapThresholdSOL?: number): Datastream {
-        const room = marketCapThresholdSOL
-            ? `graduating:sol:${marketCapThresholdSOL}`
-            : 'graduating';
-        return this.subscribe(room);
-    }
-
-    /**
-     * Subscribe to graduated tokens
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToGraduatedTokens(): Datastream {
-        return this.subscribe('graduated');
-    }
-
-    /**
-     * Subscribe to token metadata updates
-     * @param tokenAddress The token address
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToTokenMetadata(tokenAddress: string): Datastream {
-        return this.subscribe(`metadata:${tokenAddress}`);
-    }
-
-    /**
-     * Subscribe to holder count updates for a token
-     * @param tokenAddress The token address
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToHolderUpdates(tokenAddress: string): Datastream {
-        return this.subscribe(`holders:${tokenAddress}`);
-    }
-
-    /**
-     * Subscribe to token changes (any pool)
-     * @param tokenAddress The token address
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToTokenChanges(tokenAddress: string): Datastream {
-        return this.subscribe(`token:${tokenAddress}`);
-    }
-
-    /**
-     * Subscribe to pool changes
-     * @param poolId The pool address
-     * @returns Reference to this instance for chaining
-     */
-    subscribeToPoolChanges(poolId: string): Datastream {
-        return this.subscribe(`pool:${poolId}`);
     }
 
     /**

@@ -48,10 +48,9 @@ const fetchTokenInfo = async () => {
 
 fetchTokenInfo();
 ```
-
 ## Real-Time Data Streaming (Premium plan or higher only)
 
-The library includes a `Datastream` class for real-time data updates:
+The library includes a `Datastream` class for real-time data updates with an improved, intuitive API:
 
 ```typescript
 import { Datastream } from '@solanatracker/data-api';
@@ -61,23 +60,6 @@ const dataStream = new Datastream({
   wsUrl: 'YOUR_WS_URL'
 });
 
-// Example: Subscribe to latest tokens
-dataStream.subscribeToLatest();
-
-// Listen for new tokens
-dataStream.on('latest', (tokenData) => {
-  console.log('New token created:', tokenData.token.name);
-});
-
-// Example: Track a specific token's price
-const tokenAddress = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN'; // TRUMP token
-dataStream.subscribeToTokenPrice(tokenAddress);
-
-// Listen for price updates
-dataStream.on(`price-by-token:${tokenAddress}`, (priceData) => {
-  console.log(`New price: $${priceData.price}`);
-});
-
 // Connect to the WebSocket server
 dataStream.connect();
 
@@ -85,34 +67,99 @@ dataStream.connect();
 dataStream.on('connected', () => console.log('Connected to datastream'));
 dataStream.on('disconnected', () => console.log('Disconnected from datastream'));
 dataStream.on('error', (error) => console.error('Datastream error:', error));
+
+// Example 1: Subscribe to latest tokens with chained listener
+dataStream.subscribe.latest().on((tokenData) => {
+  console.log('New token created:', tokenData.token.name);
+});
+
+// Example 2: Track a specific token's price with type-safe data
+const tokenAddress = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN'; // TRUMP token
+dataStream.subscribe.price.token(tokenAddress).on((priceData) => {
+  console.log(`New price: $${priceData.price}`);
+  console.log(`Time: ${new Date(priceData.time).toLocaleTimeString()}`);
+});
+
+// Example 3: Subscribe to token transactions with stored subscription reference
+const txSubscription = dataStream.subscribe.tx.token(tokenAddress).on((transaction) => {
+  console.log(`Transaction type: ${transaction.type}`);
+  console.log(`Amount: ${transaction.amount}`);
+  console.log(`Price: $${transaction.priceUsd}`);
+});
+
+// Later, unsubscribe from transactions
+txSubscription.unsubscribe();
+
+// Example 4: Monitor holder count for a token
+dataStream.subscribe.holders(tokenAddress).on((holderData) => {
+  console.log(`Total holders: ${holderData.total}`);
+});
+
+// Example 5: Watch for wallet transactions
+const walletAddress = 'YourWalletAddressHere';
+dataStream.subscribe.tx.wallet(walletAddress).on((walletTx) => {
+  console.log(`${walletTx.type === 'buy' ? 'Bought' : 'Sold'} token`);
+  console.log(`Volume: ${walletTx.volume} USD`);
+});
 ```
 
-Available subscription methods:
+Available subscription methods are organized in a clean, intuitive namespace structure:
 
 ```typescript
 // Token and pool updates
-dataStream.subscribeToLatest();
-dataStream.subscribeToTokenChanges(tokenAddress);
-dataStream.subscribeToPoolChanges(poolId);
+dataStream.subscribe.latest();                  // Latest tokens and pools
+dataStream.subscribe.token(tokenAddress);       // Token changes (any pool)
+dataStream.subscribe.pool(poolId);              // Pool changes
 
 // Price updates
-dataStream.subscribeToTokenPrice(tokenAddress);
-dataStream.subscribeToPoolPrice(poolId);
+dataStream.subscribe.price.token(tokenAddress); // Token price (main pool)
+dataStream.subscribe.price.allPoolsForToken(tokenAddress); // All price updates for a token
+dataStream.subscribe.price.pool(poolId);        // Pool price
 
 // Transactions
-dataStream.subscribeToTokenTransactions(tokenAddress);
-dataStream.subscribeToPoolTransactions(tokenAddress, poolId);
-dataStream.subscribeToWalletTransactions(walletAddress);
+dataStream.subscribe.tx.token(tokenAddress);    // Token transactions
+dataStream.subscribe.tx.pool(tokenAddress, poolId); // Pool transactions
+dataStream.subscribe.tx.wallet(walletAddress);  // Wallet transactions
 
 // Pump.fun stages
-dataStream.subscribeToGraduatingTokens();
-dataStream.subscribeToGraduatedTokens();
+dataStream.subscribe.graduating();              // Graduating tokens
+dataStream.subscribe.graduated();               // Graduated tokens
 
 // Metadata and holders
-dataStream.subscribeToTokenMetadata(tokenAddress);
-dataStream.subscribeToHolderUpdates(tokenAddress);
+dataStream.subscribe.metadata(tokenAddress);    // Token metadata
+dataStream.subscribe.holders(tokenAddress);     // Holder updates
 ```
 
+Each subscription method returns a response object with:
+- `room`: The subscription channel name
+- `on()`: Method to attach a listener with proper TypeScript types
+  - Returns an object with `unsubscribe()` method for easy cleanup
+
+## WebSocket Data Stream
+
+The `Datastream` class provides real-time access to Solana Tracker data:
+
+### Events
+
+The Datastream extends the standard EventEmitter interface, allowing you to listen for various events:
+
+```typescript
+// Connection events
+dataStream.on('connected', () => console.log('Connected to WebSocket server'));
+dataStream.on('disconnected', (socketType) => console.log(`Disconnected: ${socketType}`));
+dataStream.on('reconnecting', (attempt) => console.log(`Reconnecting: attempt ${attempt}`));
+dataStream.on('error', (error) => console.error('Error:', error));
+
+// Data events - Standard approach
+dataStream.on('latest', (data) => console.log('New token:', data));
+dataStream.on(`price-by-token:${tokenAddress}`, (data) => console.log('Price update:', data));
+dataStream.on(`transaction:${tokenAddress}`, (data) => console.log('New transaction:', data));
+
+// New approach - Chain .on() directly to subscription
+dataStream.subscribe.latest().on((data) => console.log('New token:', data));
+dataStream.subscribe.price.token(tokenAddress).on((data) => console.log('Price update:', data));
+dataStream.subscribe.tx.token(tokenAddress).on((data) => console.log('Transaction:', data));
+```
 
 ## API Documentation
 
@@ -319,6 +366,8 @@ dataStream.on('error', (error) => console.error('Error:', error));
 // Data events
 dataStream.on('latest', (data) => console.log('New token:', data));
 dataStream.on(`price-by-token:${tokenAddress}`, (data) => console.log('Price update:', data));
+dataStream.on(`price:${tokenAddress}`, (data) => console.log('Price update:', data));
+dataStream.on(`price:${poolAddress}`, (data) => console.log('Price update:', data));
 dataStream.on(`transaction:${tokenAddress}`, (data) => console.log('New transaction:', data));
 dataStream.on(`wallet:${walletAddress}`, (data) => console.log('Wallet transaction:', data));
 dataStream.on('graduating', (data) => console.log('Graduating token:', data));

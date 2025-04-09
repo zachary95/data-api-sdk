@@ -1,7 +1,7 @@
 /**
  * Wallet-related examples for the Solana Tracker API
  */
-import { Client } from '../src/data-api';
+import { Client } from '@solanatracker/data-api';
 import { handleError } from './utils';
 
 
