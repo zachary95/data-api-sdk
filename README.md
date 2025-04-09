@@ -103,7 +103,7 @@ dataStream.subscribe.tx.wallet(walletAddress).on((walletTx) => {
 });
 ```
 
-Available subscription methods are organized in a clean, intuitive namespace structure:
+Available subscription methods:
 
 ```typescript
 // Token and pool updates
