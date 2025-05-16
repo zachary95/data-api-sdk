@@ -310,7 +310,7 @@ export interface TokenInfo {
     amount?: number;
     priceUsd?: number;
     volume?: number;
-    solVolume?: number;
+    volumeSol?: number;
     type?: string;
     wallet: string;
     time: number;
